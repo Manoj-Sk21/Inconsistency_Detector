@@ -4,25 +4,104 @@
   <meta charset="utf-8" />
   <title>Inconsistency Detector — Demo</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 18px; background:#f6f8fb; color:#111; }
-    .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 18px; border-radius:8px; box-shadow: 0 6px 18px rgba(20,30,50,0.08); }
-    textarea { width:100%; height:88px; padding:8px; border-radius:6px; border:1px solid #ddd; resize:vertical; }
-    .row { display:flex; gap:12px; align-items:flex-start; margin-bottom:12px; }
-    .col { flex:1; min-width:180px; }
-    button { background:#1762ff; color:white; border:0; padding:8px 12px; border-radius:6px; cursor:pointer; }
-    button.secondary { background:#2d3748; }
-    .results { margin-top:14px; }
-    .card { background:#fafbff; padding:12px; border-radius:8px; border:1px solid #eee; margin-bottom:8px; }
-    .badge { display:inline-block; padding:6px 8px; border-radius:999px; font-weight:600; font-size:13px; color:white; margin-right:6px; }
-    .badge.high { background:#e53935; }   /* red */
-    .badge.medium { background:#f59e0b; } /* yellow/orange */
-    .badge.low { background:#10b981; }    /* green */
-    .top-panel { display:flex; gap:12px; margin-bottom:12px; }
-    .top-card { flex:1; padding:12px; border-radius:8px; background:linear-gradient(180deg,#fff,#f7fbff); border:1px solid #e6eefc; }
-    .finding { padding:10px; border-radius:6px; background:#fff; border:1px solid #eee; margin-bottom:8px; }
-    .small { font-size:13px; color:#666; }
-    pre { background:#0f1724; color:#e6eefc; padding:10px; border-radius:6px; overflow:auto; max-height:320px; }
-  </style>
+  body { 
+    font-family: Arial, sans-serif; 
+    margin: 18px; 
+    background:#f6f8fb; 
+    color:#111; 
+    font-size: 18px;   /* increased base font */
+  }
+
+  .container { 
+    max-width: 1100px; 
+    margin: 0 auto; 
+    background: #fff; 
+    padding: 22px; 
+    border-radius:10px; 
+    box-shadow: 0 6px 18px rgba(20,30,50,0.12); 
+  }
+
+  h2 { font-size: 28px; }
+
+  label { font-size: 20px; font-weight: 600; }
+
+  textarea { 
+    width:100%; 
+    height:120px; 
+    padding:12px; 
+    border-radius:8px; 
+    border:1px solid #ccc; 
+    resize:vertical; 
+    font-size: 18px;        /* bigger text */
+  }
+
+  button { 
+    background:#1762ff; 
+    color:white; 
+    border:0; 
+    padding:12px 18px; 
+    border-radius:8px; 
+    cursor:pointer; 
+    font-size: 18px;        /* bigger buttons */
+  }
+  button.secondary { background:#333; }
+
+  .results { margin-top:18px; }
+
+  .card { 
+    background:#fafbff; 
+    padding:16px; 
+    border-radius:10px; 
+    border:1px solid #eee; 
+    margin-bottom:12px;
+    font-size: 18px; 
+  }
+
+  .badge { 
+    display:inline-block; 
+    padding:8px 12px; 
+    border-radius:999px; 
+    font-weight:700; 
+    font-size:16px; 
+    color:white; 
+    margin-right:8px; 
+  }
+  .badge.high { background:#e53935; }
+  .badge.medium { background:#f59e0b; }
+  .badge.low { background:#10b981; }
+
+  .top-panel { display:flex; gap:16px; margin-bottom:16px; }
+  .top-card { 
+    flex:1; 
+    padding:16px; 
+    border-radius:10px; 
+    background:#fff; 
+    border:1px solid #e6eefc; 
+    font-size:18px;
+  }
+
+  .finding { 
+    padding:14px; 
+    border-radius:10px; 
+    background:#fff; 
+    border:1px solid #ddd; 
+    margin-bottom:10px; 
+    font-size: 18px; 
+  }
+
+  .small { font-size:16px; color:#555; }
+
+  pre { 
+    background:#0f1724; 
+    color:#e6eefc; 
+    padding:14px; 
+    border-radius:8px; 
+    overflow:auto; 
+    max-height:400px; 
+    font-size: 16px; 
+  }
+</style>
+
 </head>
 <body>
   <div class="container">
