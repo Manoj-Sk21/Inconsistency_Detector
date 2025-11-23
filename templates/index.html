@@ -132,6 +132,7 @@
     <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
       <button id="analyzeBtn">Analyze</button>
       <button id="exportBtn" class="secondary">Export PDF</button>
+      
       <div class="small">Use this to generate a short report for detectives.</div>
     </div>
 
@@ -222,7 +223,28 @@ document.getElementById('analyzeBtn').addEventListener('click', async ()=>{
     topPanel.style.display = 'none';
   }
 
-  document.getElementById('explanation').innerHTML = data.explanation || 'No explanation provided';
+  //document.getElementById('explanation').innerHTML = data.explanation || 'No explanation provided';
+
+  // Format explanation into bullet points for readability
+function formatExplanation(text) {
+  if (!text) return "No explanation provided";
+
+  // split into sentences
+  let parts = text
+    .split(". ")
+    .map(s => s.trim())
+    .filter(s => s.length > 2);
+
+  let html = "<ul style='padding-left:22px; line-height:1.5; font-size:18px;'>";
+  for (let p of parts) {
+    html += `<li>${p.replace(").", ")")}</li>`;
+  }
+  html += "</ul>";
+  return html;
+}
+
+document.getElementById('explanation').innerHTML = formatExplanation(data.explanation);
+
 
   const conflictList = document.getElementById('conflictList');
   conflictList.innerHTML = '';
