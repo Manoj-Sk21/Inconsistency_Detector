@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Inconsistency Detector — MVP</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; }
+    h1 { font-size: 28px; margin-bottom: 20px; }
+    label { font-weight: bold; display: block; margin-top: 15px; }
+    textarea { width: 100%; height: 120px; margin-top: 5px; }
+    button { margin-top: 20px; padding: 10px 18px; font-size: 16px; cursor: pointer; }
+    pre { background: #f7f7f7; padding: 15px; white-space: pre-wrap; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Inconsistency Detector — Case Analysis MVP</h1>
+
+  <label>Witness 1 Statement</label>
+  <textarea id="w1">Witness A: I saw a man wearing a red shirt at around 8:30 PM near Park Road. He was riding a vehicle KA 01 AB 1234.</textarea>
+
+  <label>Witness 2 Statement</label>
+  <textarea id="w2">Witness B: The person wore a black shirt and passed the area at around 8:52 PM. I think the bike had a different number.</textarea>
+
+  <label>FIR</label>
+  <textarea id="fir">FIR: Complainant states the suspect wore a red shirt and snatched the bag at approximately 8:30 PM. Witnesses mentioned a vehicle KA01AB1234.</textarea>
+
+  <label>CCTV Summary</label>
+  <textarea id="cctv">CCTV Footage: At 20:52, a person is seen walking fast. Shirt color unclear. No readable vehicle plate.</textarea>
+
+  <button id="run">Analyze Evidence</button>
+
+  <h2>Results</h2>
+  <pre id="out">Results will appear here...</pre>
+
+  <script>
+    document.getElementById('run').onclick = async () => {
+      const data = {
+        witness1: document.getElementById('w1').value,
+        witness2: document.getElementById('w2').value,
+        fir: document.getElementById('fir').value,
+        cctv: document.getElementById('cctv').value
+      };
+
+      const res = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      const json = await res.json();
+      document.getElementById('out').textContent = JSON.stringify(json, null, 2);
+    };
+  </script>
+</body>
+</html>

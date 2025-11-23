@@ -1,0 +1,8 @@
+flask
+requests
+openai
+spacy
+dateparser
+sentence-transformers
+numpy
+python-dotenv
