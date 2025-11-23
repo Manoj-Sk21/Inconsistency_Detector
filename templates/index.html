@@ -378,18 +378,150 @@ function renderResults(data, mode) {
   // Explanation (human-readable)
   document.getElementById('explanation').innerHTML = formatExplanation(data.explanation || '');
 
-  // Conflicts detailed list
-  const conflictList = document.getElementById('conflictList');
-  conflictList.innerHTML = '';
-  withScores.forEach(c => {
-    const sevBadge = badgeForSeverity(c.score);
-    const title = (c.type || 'CONFLICT').replace(/_/g,' ');
-    const details = document.createElement('div');
-    details.className = 'finding';
-    // keep JSON for detailed users
-    details.innerHTML = `${sevBadge} <strong>${title}</strong><div class="small" style="margin-top:6px;">${JSON.stringify(c)}</div>`;
-    conflictList.appendChild(details);
+  // --- Friendly conflict rendering (replace older JSON-only loop) ---
+const conflictList = document.getElementById('conflictList');
+conflictList.innerHTML = '';
+
+function severityLabel(score) {
+  if (score >= 3) return { text: "High", cls: "badge high" };
+  if (score == 2) return { text: "Medium", cls: "badge medium" };
+  return { text: "Low", cls: "badge low" };
+}
+
+function shortJoin(arr, limit=2) {
+  if (!arr || !arr.length) return "—";
+  if (arr.length <= limit) return arr.join(', ');
+  return arr.slice(0, limit).join(', ') + (arr.length>limit ? '...' : '');
+}
+
+withScores.forEach((c, idx) => {
+  const sev = severityLabel(c.score);
+  const title = (c.type || 'CONFLICT').replace(/_/g,' ').toUpperCase();
+
+  // Build a short, human-friendly summary depending on type
+  let humanLine = "";
+  let detailLines = [];
+
+  if (c.type === "TIME_MISMATCH") {
+    const between = (c.between || c.pair || []).join(' & ') || 'sources';
+    const a = shortJoin(c.times_a || []);
+    const b = shortJoin(c.times_b || []);
+    humanLine = `${between}: ${a}  ≠  ${b}`;
+    detailLines.push(`Times A: ${ (c.times_a||[]).join(', ') || '—' }`);
+    detailLines.push(`Times B: ${ (c.times_b||[]).join(', ') || '—' }`);
+  } else if (c.type === "PERSON_MISMATCH") {
+    const between = (c.between || c.pair || []).join(' & ') || 'sources';
+    const a = (c.only_in_a || []).join(', ') || '—';
+    const b = (c.only_in_b || []).join(', ') || '—';
+    humanLine = `${between}: ID/plate mismatch. A: ${a} ; B: ${b}`;
+    detailLines.push(`Only in A: ${a}`);
+    detailLines.push(`Only in B: ${b}`);
+  } else if (c.type === "COLOR_MISMATCH") {
+    const between = (c.between || c.pair || []).join(' & ') || 'sources';
+    const a = shortJoin(c.colors_a || []);
+    const b = shortJoin(c.colors_b || []);
+    humanLine = `${between}: color differs — ${a} vs ${b}`;
+    detailLines.push(`Colors A: ${(c.colors_a||[]).join(', ') || '—'}`);
+    detailLines.push(`Colors B: ${(c.colors_b||[]).join(', ') || '—'}`);
+  } else if (c.type === "MISSING_DETAIL") {
+    const kw = c.keyword || 'detail';
+    const present = (c.present_in || []).join(', ') || '—';
+    humanLine = `Missing detail: '${kw}' (present in: ${present})`;
+    detailLines.push(`Present in: ${present}`);
+  } else {
+    // generic fallback
+    const between = (c.between || c.pair || []).join(' & ') || 'sources';
+    humanLine = `${title} between ${between}`;
+    detailLines.push(JSON.stringify(c));
+  }
+
+  // confidence if present
+  const confText = c.confidence !== undefined ? `Confidence: ${(c.confidence*100).toFixed(0)}%` : (c.conf !== undefined ? `Confidence: ${(c.conf*100).toFixed(0)}%` : '');
+
+  // Build card DOM
+  const card = document.createElement('div');
+  card.className = 'finding';
+  card.style.display = 'flex';
+  card.style.flexDirection = 'column';
+  card.style.gap = '8px';
+
+  // Header row with badge + title
+  const header = document.createElement('div');
+  header.style.display = 'flex';
+  header.style.justifyContent = 'space-between';
+  header.style.alignItems = 'center';
+
+  const left = document.createElement('div');
+  left.innerHTML = `<span class="${sev.cls}" style="margin-right:10px;">${sev.text}</span><strong>${title}</strong>`;
+
+  const right = document.createElement('div');
+  right.style.fontSize = '13px';
+  right.style.color = '#444';
+  right.innerText = confText;
+
+  header.appendChild(left);
+  header.appendChild(right);
+  card.appendChild(header);
+
+  // Human friendly line
+  const line = document.createElement('div');
+  line.className = 'small';
+  line.style.marginLeft = '6px';
+  line.style.color = '#222';
+  line.innerText = humanLine;
+  card.appendChild(line);
+
+  // Short details list (compact)
+  if (detailLines.length) {
+    const ul = document.createElement('ul');
+    ul.style.margin = '6px 0 0 20px';
+    ul.style.padding = '0';
+    ul.style.fontSize = '14px';
+    detailLines.forEach(dl => {
+      const li = document.createElement('li');
+      li.className = 'small';
+      li.style.marginBottom = '4px';
+      li.innerText = dl;
+      ul.appendChild(li);
+    });
+    card.appendChild(ul);
+  }
+
+  // Toggle to show raw JSON (collapsed by default)
+  const toggle = document.createElement('button');
+  toggle.className = 'mode-btn';
+  toggle.style.padding = '6px 10px';
+  toggle.style.fontSize = '13px';
+  toggle.style.background = '#fff';
+  toggle.style.color = '#222';
+  toggle.style.border = '1px solid #e6e6e6';
+  toggle.style.width = '140px';
+  toggle.style.marginTop = '6px';
+  toggle.innerText = 'Show details';
+
+  const rawPre = document.createElement('pre');
+  rawPre.style.display = 'none';
+  rawPre.style.marginTop = '8px';
+  rawPre.style.whiteSpace = 'pre-wrap';
+  rawPre.style.fontSize = '13px';
+  rawPre.textContent = JSON.stringify(c, null, 2);
+
+  toggle.addEventListener('click', () => {
+    if (rawPre.style.display === 'none') {
+      rawPre.style.display = 'block';
+      toggle.innerText = 'Hide details';
+    } else {
+      rawPre.style.display = 'none';
+      toggle.innerText = 'Show details';
+    }
   });
+
+  card.appendChild(toggle);
+  card.appendChild(rawPre);
+
+  conflictList.appendChild(card);
+});
+
 
   // Similarity scores
   document.getElementById('sims').innerHTML = (data.similarities || []).map(s => {
