@@ -1,6 +1,5 @@
 flask
 requests
-openai
 spacy
 dateparser
 sentence-transformers

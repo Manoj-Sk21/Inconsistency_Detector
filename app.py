@@ -162,56 +162,82 @@ def detect_conflicts(docs):
 
 # ---- LLM integration: Groq first, then Hugging Face fallback ----
 
+import os, requests, json
+
 def call_groq(prompt_text):
     """
-    Send a generation request to Groq. The exact request body here is kept generic:
-    set GROQ_API_URL from the Groq console (they provide the endpoint).
-    GROQ_API_KEY must be present in env.
+    Uses Groq's OpenAI-compatible chat/completions endpoint.
+    Requires these env vars:
+      - GROQ_API_URL  (e.g. https://api.groq.com/openai/v1/chat/completions)
+      - GROQ_API_KEY
+      - GROQ_MODEL    (e.g. meta-llama/llama-4-scout-17b-16e-instruct)
+    Returns generated text (string) or raises RuntimeError with details.
     """
+    api_url = os.environ.get("GROQ_API_URL")
     api_key = os.environ.get("GROQ_API_KEY")
-    api_url = os.environ.get("GROQ_API_URL")  # e.g., https://api.groq.com/v1/models/llama-3.1/generate
-    model = os.environ.get("GROQ_MODEL", "")  # optional
+    model = os.environ.get("GROQ_MODEL")
 
-    if not api_key or not api_url:
-        raise RuntimeError("Groq API not configured (GROQ_API_KEY or GROQ_API_URL missing)")
+    if not api_url or not api_key or not model:
+        raise RuntimeError("Missing GROQ_API_URL, GROQ_API_KEY or GROQ_MODEL environment variable.")
 
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
-    # Generic payload; Groq console will show exact fields for your model — this payload should work for many setups.
-    payload = {
+    # Try chat-completions shape first (OpenAI-compatible)
+    payload_chat = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt_text}],
+        "temperature": 0.0,
+        "max_tokens": 400
+    }
+
+    try:
+        resp = requests.post(api_url, headers=headers, json=payload_chat, timeout=30)
+    except Exception as e:
+        raise RuntimeError(f"Network/error calling Groq: {e}")
+
+    # If success, try to parse common OpenAI-like response shapes
+    if resp.status_code == 200:
+        data = resp.json()
+        # 1) chat-completions: choices[0].message.content
+        try:
+            return data["choices"][0]["message"]["content"]
+        except Exception:
+            pass
+        # 2) completions style: choices[0].text
+        try:
+            return data["choices"][0]["text"]
+        except Exception:
+            pass
+        # 3) some Groq responses place the text in other fields
+        # return a compact JSON string as a fallback
+        return json.dumps(data)
+
+    # If chat-style failed, try a prompt/completions fallback payload
+    # (some endpoints accept "prompt")
+    payload_completion = {
+        "model": model,
         "prompt": prompt_text,
         "max_tokens": 400,
         "temperature": 0.0
     }
-    if model:
-        payload["model"] = model
+    try:
+        resp2 = requests.post(api_url, headers=headers, json=payload_completion, timeout=30)
+    except Exception as e:
+        raise RuntimeError(f"Network/error calling Groq (fallback): {e}")
 
-    resp = requests.post(api_url, headers=headers, json=payload, timeout=30)
-    if resp.status_code != 200:
-        raise RuntimeError(f"Groq API error {resp.status_code}: {resp.text}")
+    if resp2.status_code == 200:
+        data2 = resp2.json()
+        try:
+            return data2["choices"][0]["text"]
+        except Exception:
+            return json.dumps(data2)
 
-    data = resp.json()
-    # Groq responses vary by API version. Try common places for the generated text:
-    if isinstance(data, dict):
-        # common patterns: {"output": "..."} or {"generated_text":"..."} or {"choices":[{"text": "..."}]}
-        if "output" in data and isinstance(data["output"], str):
-            return data["output"]
-        if "generated_text" in data and isinstance(data["generated_text"], str):
-            return data["generated_text"]
-        if "choices" in data and isinstance(data["choices"], list) and data["choices"]:
-            first = data["choices"][0]
-            # try a few fields
-            for k in ("text", "message", "content"):
-                if k in first and isinstance(first[k], str):
-                    return first[k]
-            # nested openai-like format
-            if "delta" in first and isinstance(first["delta"], dict):
-                return first["delta"].get("content", "")
-    # fallback: return raw json as text
-    return json.dumps(data)
+    # Both attempts failed — raise a detailed error so you can paste it here if needed
+    raise RuntimeError(f"Groq API errors:\nPrimary ({resp.status_code}): {resp.text}\nFallback ({resp2.status_code}): {resp2.text}")
+
 
 
 def call_huggingface(prompt_text):
