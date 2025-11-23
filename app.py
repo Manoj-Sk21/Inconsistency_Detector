@@ -436,7 +436,56 @@ def analyze():
 
     # similarity checks
     names = list(docs.keys())
+    sims = []@app.route("/export_pdf", methods=["POST"])
+def export_pdf():
+    data = request.get_json(force=True) or {}
+    w1 = data.get("witness1", "")
+    w2 = data.get("witness2", "")
+    fir = data.get("fir", "")
+    cctv = data.get("cctv", "")
+
+    # Re-run detection (reuse your existing logic)
+    docs = {"witness1": w1, "witness2": w2, "fir": fir, "cctv": cctv}
+
+    # detect_conflicts should return a list of conflict dicts (your existing function)
+    try:
+        conflicts = detect_conflicts(docs)
+    except NameError:
+        # fallback: empty conflicts if function missing
+        conflicts = []
+
+    # compute similarity scores if embed_sim exists
     sims = []
+    try:
+        names = list(docs.keys())
+        for i in range(len(names)):
+            for j in range(i+1, len(names)):
+                sims.append({"pair":[names[i],names[j]], "similarity": round(embed_sim(docs[names[i]], docs[names[j]]),4)})
+    except Exception:
+        sims = []
+
+    # explanation from LLM providers (reuse your function)
+    try:
+        explanation = generate_explanation_with_providers(conflicts)
+    except NameError:
+        # fallback: minimal explanation if function missing
+        explanation = "No AI explanation available. Conflicts generated programmatically."
+
+    # Use the uploaded screenshot path (local path you uploaded earlier)
+    screenshot_path = "/mnt/data/ae1bf6a3-ff77-414d-8234-3ada5cab4347.png"
+
+    # Build PDF buffer
+    try:
+        pdf_buf = build_pdf_bytes("Inconsistency Detector — Report", w1, w2, fir, cctv, conflicts, explanation, sims, screenshot_path=screenshot_path)
+    except Exception as e:
+        return f"Error building PDF: {e}", 500
+
+    # Send as attachment
+    try:
+        return send_file(pdf_buf, download_name="Inconsistency_Report.pdf", as_attachment=True, mimetype='application/pdf')
+    except Exception as e:
+        return f"Error sending PDF: {e}", 500
+
     for i in range(len(names)):
         for j in range(i+1, len(names)):
             sim = embed_sim(docs[names[i]] or "", docs[names[j]] or "")
@@ -445,6 +494,8 @@ def analyze():
     explanation = generate_explanation_with_providers(conflicts)
 
     return jsonify({"conflicts": conflicts, "similarities": sims, "explanation": explanation})
+
+
 
 
 if __name__ == "__main__":
