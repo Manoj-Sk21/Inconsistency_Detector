@@ -100,6 +100,15 @@
     max-height:400px; 
     font-size: 16px; 
   }
+
+  .active-mode {
+  background:#0b3bff !important;
+  color:white !important;
+  border-color:#0b3bff !important;
+  box-shadow:0 4px 10px rgba(0,40,255,0.25);
+}
+
+
 </style>
 
 </head>
@@ -129,12 +138,82 @@
       </div>
     </div>
 
-    <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-      <button id="analyzeBtn">Analyze</button>
-      <button id="exportBtn" class="secondary">Export PDF</button>
-      
-      <div class="small">Use this to generate a short report for detectives.</div>
+<!-- ====== Clean, responsive controls: Analyze A / Analyze B / Export ====== -->
+<style>
+  /* Controls layout */
+  .controls-row { display:flex; gap:18px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:18px; }
+  .controls-left { display:flex; gap:12px; align-items:center; }
+  .controls-center { flex:1; padding:0 16px; min-width:260px; }
+  .controls-right { min-width:320px; }
+
+  /* Buttons */
+  .mode-btn {
+    padding:12px 18px;
+    border-radius:10px;
+    border:1px solid #cfdcff;
+    background:#f3f7ff;
+    cursor:pointer;
+    font-weight:700;
+    font-size:16px;
+    color:#0b3bff;
+    transition: all 0.12s ease;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+  }
+  .mode-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 18px rgba(11,59,255,0.12);
+  }
+  .mode-btn.active {
+    background:#0b3bff;
+    color:#fff;
+    border-color:#0b3bff;
+    box-shadow: 0 6px 18px rgba(11,59,255,0.18);
+  }
+
+  .desc { font-size:15px; color:#333; line-height:1.3; }
+  .desc small { display:block; color:#666; font-weight:600; margin-top:6px; }
+
+  /* small-screen tweaks */
+  @media (max-width:880px) {
+    .controls-row { flex-direction:column; align-items:stretch; }
+    .controls-center { order:3; }
+    .controls-right { order:2; }
+  }
+  #legendCard { background: #fffaf8; border-color: #fbe3d6; }
+#legendCard strong { font-size:16px; }
+
+
+</style>
+
+<div class="controls-row">
+  <!-- left: main buttons -->
+  <div class="controls-left" aria-hidden="false">
+    <button id="analyzeA" class="mode-btn">Analyze — Version A</button>
+    <button id="analyzeB" class="mode-btn">Analyze — Version B</button>
+    <button id="exportBtn" class="mode-btn" style="background:#333; color:#fff; border-color:#333;">Export PDF (selected)</button>
+  </div>
+
+  <!-- center: clear descriptions for each version -->
+  <div class="controls-center" role="region" aria-label="version descriptions">
+    <div class="desc" id="versionDesc">
+      <strong>Selected:</strong> <span id="selectedLabel">Version A — Simple</span>
+      <small id="selectedDesc">Version A gives concise facts: short timestamps, key nouns (vehicle plate, colors). Use for quick investigator briefs.</small>
     </div>
+  </div>
+
+  <!-- right: compact simple-summary card preview -->
+  <div class="controls-right">
+    <div class="card" style="padding:12px;">
+      <strong style="font-size:16px;">Quick Investigator Brief</strong>
+      <div id="simpleSummary" style="margin-top:8px; font-size:15px; line-height:1.5; color:#111;">
+        <!-- Simple summary will populate here -->
+      </div>
+    </div>
+  </div>
+</div>
+
 
     <!-- Top 3 findings panel -->
     <div class="top-panel" id="topPanel" style="display:none">
@@ -151,6 +230,47 @@
         </div>
       </div>
     </div>
+
+    <!-- ========= Scores & Legend (explain numbers shown in UI) ========= -->
+<div class="card" id="legendCard" style="margin-bottom:12px;">
+  <strong>Scores & Legend — What the numbers mean</strong>
+  <div style="margin-top:10px; line-height:1.5; font-size:15px; color:#222;">
+    <div style="margin-bottom:6px;">
+      <strong>Severity (shown as High / Medium / Low)</strong> — internal importance score:
+      <ul class="small" style="margin:6px 0 0 18px;">
+        <li><strong>High (3)</strong>: Critical contradictions that can change the investigation (e.g., time mismatch or vehicle/plate mismatch).</li>
+        <li><strong>Medium (2)</strong>: Important but less decisive (e.g., person/appearance mismatches).</li>
+        <li><strong>Low (1)</strong>: Missing or minor details (e.g., a keyword only mentioned in one source).</li>
+      </ul>
+    </div>
+
+    <div style="margin-top:8px; margin-bottom:6px;">
+      <strong>Confidence</strong> — how sure the system is about a claim (displayed as a percentage in explanations).
+      <div class="small" style="margin-top:4px;">Values close to <strong>100%</strong> mean the AI is more confident. Values around <strong>50%</strong> mean uncertain — re-check evidence manually.</div>
+    </div>
+
+    <div style="margin-top:8px; margin-bottom:6px;">
+      <strong>Similarity score (0.00 → 1.00)</strong> — measures overall agreement between two sources (sentence embeddings).
+      <div class="small" style="margin-top:4px;">
+        • <strong>≥ 0.75</strong> = strong agreement<br>
+        • <strong>0.50–0.75</strong> = moderate agreement<br>
+        • <strong>&lt; 0.50</strong> = low agreement / likely different descriptions
+      </div>
+    </div>
+
+    <div style="margin-top:8px;">
+      <strong>What the system outputs</strong>
+      <div class="small" style="margin-top:4px;">
+        • <strong>Top 3 findings</strong> — the highest-severity issues to check first.<br>
+        • <strong>Explanation</strong> — plain-language description with confidence values.<br>
+        • <strong>Conflicts</strong> — structured, machine-readable mismatch objects (used by analysts).<br>
+        • <strong>Similarity Scores</strong> — pairwise agreement measures between sources.
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ========= end legend ========= -->
+
 
     <!-- Results + explanation -->
     <div class="results">
@@ -172,10 +292,14 @@
   </div>
 
 <script>
+/* -----------------------
+   Helper: severity / badges
+   ----------------------- */
 function severityFor(conflict) {
   const high = ["TIME_MISMATCH","VEHICLE_MISMATCH"];
   const medium = ["PERSON_MISMATCH","COLOR_MISMATCH"];
   const low = ["MISSING_DETAIL"];
+  if (!conflict || !conflict.type) return 1;
   if (high.includes(conflict.type)) return 3;
   if (medium.includes(conflict.type)) return 2;
   if (low.includes(conflict.type)) return 1;
@@ -187,106 +311,265 @@ function badgeForSeverity(score) {
   return '<span class="badge low">Low</span>';
 }
 
-document.getElementById('analyzeBtn').addEventListener('click', async ()=>{
-  const w1 = document.getElementById('w1').value;
-  const w2 = document.getElementById('w2').value;
-  const fir = document.getElementById('fir').value;
-  const cctv = document.getElementById('cctv').value;
-
-  document.getElementById('explanation').innerText = 'Analyzing...';
-  document.getElementById('conflictList').innerHTML = '';
-  document.getElementById('sims').innerText = '';
-
-  const resp = await fetch('/analyze', {
-    method:'POST',
-    headers:{'Content-Type': 'application/json'},
-    body: JSON.stringify({witness1: w1, witness2: w2, fir: fir, cctv: cctv})
-  });
-  const data = await resp.json();
-
-  const conflicts = data.conflicts || [];
-  const withScores = conflicts.map(c => ({...c, score: severityFor(c)}));
-  withScores.sort((a,b) => b.score - a.score);
-
-  const topPanel = document.getElementById('topPanel');
-  const topList = document.getElementById('topList');
-  topList.innerHTML = '';
-  if (withScores.length) {
-    topPanel.style.display = 'flex';
-    withScores.slice(0,3).forEach((c,idx)=>{
-      const badge = badgeForSeverity(c.score);
-      const title = c.type.replace(/_/g,' ');
-      let desc = JSON.stringify(c).replace(/^{|}$/g,'');
-      topList.innerHTML += `<div class="finding">${badge}<strong> ${title}</strong><div class="small">${desc}</div></div>`;
-    });
-  } else {
-    topPanel.style.display = 'none';
-  }
-
-  //document.getElementById('explanation').innerHTML = data.explanation || 'No explanation provided';
-
-  // Format explanation into bullet points for readability
+/* -----------------------
+   Small util: format explanation into bullets
+   ----------------------- */
 function formatExplanation(text) {
   if (!text) return "No explanation provided";
-
-  // split into sentences
+  // split into sentences (heuristic)
   let parts = text
-    .split(". ")
+    .replace(/\n+/g, '. ')
+    .split(/\. |\n/)
     .map(s => s.trim())
     .filter(s => s.length > 2);
 
-  let html = "<ul style='padding-left:22px; line-height:1.5; font-size:18px;'>";
+  if (parts.length === 0) return text;
+
+  let html = "<ul style='padding-left:22px; line-height:1.5; font-size:18px; margin:0;'>";
   for (let p of parts) {
-    html += `<li>${p.replace(").", ")")}</li>`;
+    // trim trailing periods
+    const clean = p.replace(/\.$/, "");
+    html += `<li>${clean}</li>`;
   }
   html += "</ul>";
   return html;
 }
 
-document.getElementById('explanation').innerHTML = formatExplanation(data.explanation);
+/* -----------------------
+   Render results (shared)
+   ----------------------- */
+function renderResults(data, mode) {
+  const conflicts = data.conflicts || [];
+  const withScores = conflicts.map(c => ({...c, score: severityFor(c)}));
+  withScores.sort((a,b) => b.score - a.score);
 
+  // Top Panel (Top 3)
+  const topPanel = document.getElementById('topPanel');
+  const topList = document.getElementById('topList');
+  topList.innerHTML = '';
+  if (withScores.length) {
+    topPanel.style.display = 'flex';
+    withScores.slice(0,3).forEach((c, idx) => {
+      const badge = badgeForSeverity(c.score);
+      const title = (c.type || 'CONFLICT').replace(/_/g,' ');
+      // brief description: prefer human fields if available
+      let brief = '';
+      if (c.type === 'TIME_MISMATCH') {
+        const ta = c.times_a || [];
+        const tb = c.times_b || [];
+        brief = `Times: ${ta.slice(0,2).join(', ') || '—'} vs ${tb.slice(0,2).join(', ') || '—'}`;
+      } else if (c.type === 'PERSON_MISMATCH') {
+        const a = (c.only_in_a||[]).join(', ');
+        const b = (c.only_in_b||[]).join(', ');
+        brief = `Only in A: ${a || '—'} ; Only in B: ${b || '—'}`;
+      } else if (c.type === 'COLOR_MISMATCH') {
+        brief = `${(c.colors_a||[]).join(', ')} vs ${(c.colors_b||[]).join(', ')}`;
+      } else if (c.type === 'MISSING_DETAIL') {
+        brief = `${c.keyword || 'detail'} present in: ${(c.present_in||[]).join(', ')}`;
+      } else {
+        brief = JSON.stringify(c).slice(0,120);
+      }
+      topList.innerHTML += `<div class="finding">${badge}<strong> ${title}</strong><div class="small">${brief}</div></div>`;
+    });
+  } else {
+    topPanel.style.display = 'none';
+  }
 
+  // Explanation (human-readable)
+  document.getElementById('explanation').innerHTML = formatExplanation(data.explanation || '');
+
+  // Conflicts detailed list
   const conflictList = document.getElementById('conflictList');
   conflictList.innerHTML = '';
-  withScores.forEach(c=>{
+  withScores.forEach(c => {
     const sevBadge = badgeForSeverity(c.score);
-    const title = c.type.replace(/_/g,' ');
+    const title = (c.type || 'CONFLICT').replace(/_/g,' ');
     const details = document.createElement('div');
     details.className = 'finding';
-    details.innerHTML = `${sevBadge} <strong>${title}</strong><div class="small">${JSON.stringify(c)}</div>`;
+    // keep JSON for detailed users
+    details.innerHTML = `${sevBadge} <strong>${title}</strong><div class="small" style="margin-top:6px;">${JSON.stringify(c)}</div>`;
     conflictList.appendChild(details);
   });
 
-  document.getElementById('sims').innerHTML = (data.similarities || []).map(s=>`<div class="small">${s.pair.join(' ↔ ')} : ${s.similarity}</div>`).join('');
-});
+  // Similarity scores
+  document.getElementById('sims').innerHTML = (data.similarities || []).map(s => {
+    return `<div class="small">${s.pair.join(' ↔ ')} : ${s.similarity}</div>`;
+  }).join('');
 
-// Export PDF
-document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  // Version A preview: create a concise, readable summary with key facts
+  const simpleSummaryEl = document.getElementById('simpleSummary');
+  if (simpleSummaryEl) {
+    // Build grouped high/medium/low lists
+    const high = [], med = [], lowA = [];
+    withScores.forEach(c => {
+      const text = buildHumanLine(c);
+      if (c.score >= 3) high.push(text);
+      else if (c.score == 2) med.push(text);
+      else lowA.push(text);
+    });
+
+    let html = '';
+    if (high.length) {
+      html += "<div style='margin-bottom:8px;'><strong style='color:#e53935;'>High</strong><ul>";
+      high.forEach(s => html += `<li class="small">${s}</li>`);
+      html += "</ul></div>";
+    }
+    if (med.length) {
+      html += "<div style='margin-bottom:8px;'><strong style='color:#f59e0b;'>Medium</strong><ul>";
+      med.forEach(s => html += `<li class="small">${s}</li>`);
+      html += "</ul></div>";
+    }
+    if (lowA.length) {
+      html += "<div style='margin-bottom:4px;'><strong style='color:#10b981;'>Low</strong><ul>";
+      lowA.forEach(s => html += `<li class="small">${s}</li>`);
+      html += "</ul></div>";
+    }
+    // small action suggestions
+    html += `<div style='margin-top:8px; font-size:14px; color:#333;'><strong>Suggested next steps:</strong><ul class="small"><li>Validate CCTV timestamps.</li><li>Re-interview plate witness.</li><li>Show cropped stills to witnesses.</li></ul></div>`;
+    simpleSummaryEl.innerHTML = html;
+  }
+}
+
+/* small helper to build a short human-line from a conflict */
+function buildHumanLine(c) {
+  if (!c || !c.type) return 'Unknown conflict';
+  if (c.type === 'TIME_MISMATCH') {
+    const ta = (c.times_a||[]).slice(0,2).join(', ') || '—';
+    const tb = (c.times_b||[]).slice(0,2).join(', ') || '—';
+    return `Time mismatch between ${ (c.between||c.pair||[]).join(' & ') || 'sources' }: ${ta} vs ${tb}`;
+  }
+  if (c.type === 'PERSON_MISMATCH') {
+    const a = (c.only_in_a||[]).join(', ') || '—';
+    const b = (c.only_in_b||[]).join(', ') || '—';
+    return `ID/plate mismatch: A: ${a} ; B: ${b}`;
+  }
+  if (c.type === 'COLOR_MISMATCH') {
+    const a = (c.colors_a||[]).join(', ');
+    const b = (c.colors_b||[]).join(', ');
+    return `Appearance mismatch: ${a} vs ${b}`;
+  }
+  if (c.type === 'MISSING_DETAIL') {
+    return `Missing detail '${c.keyword}' (present in: ${(c.present_in||[]).join(', ')})`;
+  }
+  // default
+  return `${(c.type||'CONFLICT')} between ${(c.between||c.pair||[]).join(' & ')}`;
+}
+
+/* -----------------------
+   Analysis runner (calls backend)
+   ----------------------- */
+async function runAnalysis(mode) {
+  // show analyzing
+  document.getElementById('explanation').innerText = 'Analyzing...';
+  document.getElementById('conflictList').innerHTML = '';
+  document.getElementById('sims').innerText = '';
+
   const payload = {
     witness1: document.getElementById('w1').value,
     witness2: document.getElementById('w2').value,
     fir: document.getElementById('fir').value,
-    cctv: document.getElementById('cctv').value
+    cctv: document.getElementById('cctv').value,
+    mode: mode  // server can use mode if needed
   };
-  const resp = await fetch('/export_pdf', {
-    method:'POST',
-    headers:{'Content-Type': 'application/json'},
-    body: JSON.stringify(payload)
-  });
-  if (!resp.ok) {
-    const t = await resp.text();
-    alert('Export failed: ' + t);
-    return;
+
+  try {
+    const resp = await fetch('/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      const txt = await resp.text();
+      document.getElementById('explanation').innerText = 'Analyze failed: ' + txt;
+      return;
+    }
+    const data = await resp.json();
+    renderResults(data, mode);
+  } catch (err) {
+    document.getElementById('explanation').innerText = 'Analyze error: ' + (err.message || err);
   }
-  const blob = await resp.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'Inconsistency_Report.pdf';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+}
+
+/* -----------------------
+   Mode buttons wiring
+   ----------------------- */
+let selectedVersion = "A"; // default
+
+const analyzeA = document.getElementById('analyzeA');
+const analyzeB = document.getElementById('analyzeB');
+const selectedLabel = document.getElementById('selectedLabel');
+const selectedDesc = document.getElementById('selectedDesc');
+
+// Ensure the UI elements exist before adding listeners
+if (analyzeA && analyzeB && selectedLabel && selectedDesc) {
+  // set initial active look
+  analyzeA.classList.add('active');
+
+  analyzeA.addEventListener('click', () => {
+    selectedVersion = "A";
+    analyzeA.classList.add('active');
+    analyzeB.classList.remove('active');
+
+    selectedLabel.innerText = "Version A — Simple";
+    selectedDesc.innerText = "Version A gives concise facts: short timestamps, key nouns (vehicle plate, colors). Use for quick investigator briefs.";
+
+    // run analysis for A
+    runAnalysis("A");
+  });
+
+  analyzeB.addEventListener('click', () => {
+    selectedVersion = "B";
+    analyzeB.classList.add('active');
+    analyzeA.classList.remove('active');
+
+    selectedLabel.innerText = "Version B — Detailed";
+    selectedDesc.innerText = "Version B includes full timestamps, entity lists, extracted details, and conflict reasoning — preferred for analysts.";
+
+    // run analysis for B
+    runAnalysis("B");
+  });
+} else {
+  console.warn("Mode buttons or labels are missing from the DOM.");
+}
+
+/* -----------------------
+   Export PDF (sends selected mode)
+   ----------------------- */
+document.getElementById('exportBtn').addEventListener('click', async () => {
+  const payload = {
+    mode: selectedVersion,
+    witness1: document.getElementById('w1').value,
+    witness2: document.getElementById('w2').value,
+    fir: document.getElementById('fir').value,
+    cctv: document.getElementById('cctv').value,
+    screenshot_path: "/mnt/data/ae1bf6a3-ff77-414d-8234-3ada5cab4347.png"
+  };
+
+  try {
+    const resp = await fetch('/export_pdf', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      alert('Export failed: ' + t);
+      return;
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Inconsistency_Report_${payload.mode}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Export error: ' + (err.message || err));
+  }
 });
 </script>
+
 </body>
 </html>

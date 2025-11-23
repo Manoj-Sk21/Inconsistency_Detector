@@ -422,123 +422,141 @@ def index():
     return render_template("index.html")
 
 
-from flask import jsonify
+from flask import request, jsonify
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
-    try:
-        data = request.get_json(force=True) or {}
-        docs = {
-            "witness1": data.get("witness1", "") or data.get("w1", ""),
-            "witness2": data.get("witness2", "") or data.get("w2", ""),
-            "fir": data.get("fir", ""),
-            "cctv": data.get("cctv", "")
-        }
-
-        # 1) detect conflicts (use your function)
-        try:
-            conflicts = detect_conflicts(docs)
-        except NameError:
-            conflicts = []  # fallback if function missing
-
-        # 2) similarity embeddings (safe)
-        sims = []
-        try:
-            names = list(docs.keys())
-            for i in range(len(names)):
-                for j in range(i+1, len(names)):
-                    sim = 0.0
-                    try:
-                        sim = embed_sim(docs[names[i]] or "", docs[names[j]] or "")
-                    except NameError:
-                        sim = 0.0
-                    sims.append({"pair": [names[i], names[j]], "similarity": round(float(sim), 4)})
-        except Exception:
-            sims = []
-
-        # 3) explanation (LLM) with safe fallback
-        try:
-            explanation = generate_explanation_with_providers(conflicts)
-        except NameError:
-            explanation = "AI explanation unavailable (function missing)."
-        except Exception as e:
-            explanation = f"AI explanation error: {str(e)}"
-
-        # 4) Final response always JSON
-        return jsonify({
-            "conflicts": conflicts,
-            "similarities": sims,
-            "explanation": explanation
-        }), 200
-
-    except Exception as e:
-        # Catch-all: return error JSON (so view never returns None)
-        return jsonify({
-            "error": "analyze_failed",
-            "message": str(e)
-        }), 500
-
-    
-@app.route("/export_pdf", methods=["POST"])
-def export_pdf():
     data = request.get_json(force=True) or {}
-    w1 = data.get("witness1", "")
-    w2 = data.get("witness2", "")
-    fir = data.get("fir", "")
-    cctv = data.get("cctv", "")
+    mode = data.get("mode", "A")  # "A" or "B"
+    docs = {
+        "witness1": data.get("witness1", ""),
+        "witness2": data.get("witness2", ""),
+        "fir": data.get("fir", ""),
+        "cctv": data.get("cctv", "")
+    }
 
-    # Re-run detection (reuse your existing logic)
-    docs = {"witness1": w1, "witness2": w2, "fir": fir, "cctv": cctv}
-
-    # detect_conflicts should return a list of conflict dicts (your existing function)
+    # 1) conflicts detection (use your existing function if present)
     try:
         conflicts = detect_conflicts(docs)
     except NameError:
-        # fallback: empty conflicts if function missing
         conflicts = []
 
-    # compute similarity scores if embed_sim exists
+    # 2) pairwise similarity (safe fallback if embed_sim not defined)
     sims = []
     try:
         names = list(docs.keys())
         for i in range(len(names)):
             for j in range(i+1, len(names)):
-                sims.append({"pair":[names[i],names[j]], "similarity": round(embed_sim(docs[names[i]], docs[names[j]]),4)})
+                try:
+                    score = embed_sim(docs[names[i]], docs[names[j]])
+                except NameError:
+                    score = 0.0
+                sims.append({"pair":[names[i], names[j]], "similarity": round(float(score), 4)})
     except Exception:
         sims = []
 
-    # explanation from LLM providers (reuse your function)
+    # 3) explanation: A -> concise brief, B -> detailed (LLM if available)
+    explanation = ""
     try:
-        explanation = generate_explanation_with_providers(conflicts)
-    except NameError:
-        # fallback: minimal explanation if function missing
-        explanation = "No AI explanation available. Conflicts generated programmatically."
-
-    # Use the uploaded screenshot path (local path you uploaded earlier)
-    screenshot_path = "/mnt/data/ae1bf6a3-ff77-414d-8234-3ada5cab4347.png"
-
-    # Build PDF buffer
-    try:
-        pdf_buf = build_pdf_bytes("Inconsistency Detector — Report", w1, w2, fir, cctv, conflicts, explanation, sims, screenshot_path=screenshot_path)
+        if mode == "A":
+            # Build concise top-3 brief
+            def sev_val(k):
+                if k.get("type") in ("TIME_MISMATCH","VEHICLE_MISMATCH"): return 3
+                if k.get("type") in ("PERSON_MISMATCH","COLOR_MISMATCH"): return 2
+                return 1
+            top = sorted(conflicts, key=lambda k: sev_val(k), reverse=True)[:3]
+            lines = []
+            for t in top:
+                ttype = t.get("type","CONFLICT").replace("_"," ").title()
+                between = ", ".join(t.get("between") or t.get("pair") or [])
+                if t.get("type") == "TIME_MISMATCH":
+                    ta = (t.get("times_a") or [])[:2]
+                    tb = (t.get("times_b") or [])[:2]
+                    lines.append(f"{ttype} between {between}: {', '.join(ta) or '—'} vs {', '.join(tb) or '—'}.")
+                elif t.get("type") == "PERSON_MISMATCH":
+                    a = ",".join(t.get("only_in_a") or []) or "—"
+                    b = ",".join(t.get("only_in_b") or []) or "—"
+                    lines.append(f"{ttype}: only_in_a: {a}; only_in_b: {b}.")
+                elif t.get("type") == "COLOR_MISMATCH":
+                    a = (t.get("colors_a") or [])[:2]
+                    b = (t.get("colors_b") or [])[:2]
+                    lines.append(f"{ttype} between {between}: {a} vs {b}.")
+                elif t.get("type") == "MISSING_DETAIL":
+                    lines.append(f"Missing detail '{t.get('keyword')}' present in: {(t.get('present_in') or [])}.")
+                else:
+                    lines.append(f"{ttype} between {between}.")
+            explanation = " | ".join(lines) if lines else "No major conflicts found."
+        else:
+            # Mode B: detailed explanation using LLM if available
+            try:
+                # If you have a function that calls LLM, call it here (it should return a long text)
+                explanation = generate_explanation_with_providers(conflicts)
+            except NameError:
+                # Fallback to a structured concatenation of conflicts
+                explanation = "\n".join([str(c) for c in conflicts]) if conflicts else "No conflicts detected."
     except Exception as e:
-        return f"Error building PDF: {e}", 500
+        explanation = f"Explanation generation error: {e}"
 
-    # Send as attachment
+    return jsonify({
+        "conflicts": conflicts,
+        "similarities": sims,
+        "explanation": explanation
+    }), 200
+
+
+    
+from flask import send_file, request, jsonify
+
+@app.route("/export_pdf", methods=["POST"])
+def export_pdf():
     try:
-        return send_file(pdf_buf, download_name="Inconsistency_Report.pdf", as_attachment=True, mimetype='application/pdf')
+        data = request.get_json(force=True) or {}
+        mode = data.get("mode", "A")  # "A" or "B"
+        w1 = data.get("witness1", "")
+        w2 = data.get("witness2", "")
+        fir = data.get("fir", "")
+        cctv = data.get("cctv", "")
+        screenshot_path = data.get("screenshot_path")  # expects a server-local path
+
+        docs = {"witness1": w1, "witness2": w2, "fir": fir, "cctv": cctv}
+
+        # obtain conflicts, sims, explanation (use your functions if available)
+        try:
+            conflicts = detect_conflicts(docs)
+        except NameError:
+            conflicts = []
+
+        try:
+            sims = []
+            names = list(docs.keys())
+            for i in range(len(names)):
+                for j in range(i+1, len(names)):
+                    try:
+                        score = embed_sim(docs[names[i]], docs[names[j]])
+                    except NameError:
+                        score = 0.0
+                    sims.append({"pair":[names[i],names[j]], "similarity": round(float(score),4)})
+        except Exception:
+            sims = []
+
+        try:
+            explanation = generate_explanation_with_providers(conflicts)
+        except NameError:
+            explanation = "AI explanation unavailable."
+
+        # Build different PDF content depending on mode
+        if mode == "A":
+            # Version A: concise briefing — pass minimal content and prefer short explanation
+            brief_expl = "Brief: see Key Findings and Actions. " + (explanation.split('\n')[0] if explanation else "")
+            pdf_buf = build_pdf_bytes("Inconsistency — Investigator Brief (Version A)", w1, w2, fir, cctv, conflicts, brief_expl, sims, screenshot_path=screenshot_path)
+        else:
+            # Version B: full detailed report
+            pdf_buf = build_pdf_bytes("Inconsistency — Full Report (Version B)", w1, w2, fir, cctv, conflicts, explanation, sims, screenshot_path=screenshot_path)
+
+        return send_file(pdf_buf, download_name=f"Inconsistency_Report_{mode}.pdf", as_attachment=True, mimetype='application/pdf')
     except Exception as e:
-        return f"Error sending PDF: {e}", 500
-
-    for i in range(len(names)):
-        for j in range(i+1, len(names)):
-            sim = embed_sim(docs[names[i]] or "", docs[names[j]] or "")
-            sims.append({"pair": [names[i], names[j]], "similarity": round(sim, 4)})
-
-    explanation = generate_explanation_with_providers(conflicts)
-
-    return jsonify({"conflicts": conflicts, "similarities": sims, "explanation": explanation})
-
-
+        # return a helpful message for debugging
+        return jsonify({"error": "export_failed", "message": str(e)}), 500
 
 
 if __name__ == "__main__":
