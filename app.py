@@ -422,21 +422,64 @@ def index():
     return render_template("index.html")
 
 
+from flask import jsonify
+
 @app.route("/analyze", methods=["POST"])
 def analyze():
-    data = request.get_json(force=True) or {}
-    docs = {
-        "witness1": data.get("witness1", "") or data.get("w1", ""),
-        "witness2": data.get("witness2", "") or data.get("w2", ""),
-        "fir": data.get("fir", ""),
-        "cctv": data.get("cctv", "")
-    }
+    try:
+        data = request.get_json(force=True) or {}
+        docs = {
+            "witness1": data.get("witness1", "") or data.get("w1", ""),
+            "witness2": data.get("witness2", "") or data.get("w2", ""),
+            "fir": data.get("fir", ""),
+            "cctv": data.get("cctv", "")
+        }
 
-    conflicts = detect_conflicts(docs)
+        # 1) detect conflicts (use your function)
+        try:
+            conflicts = detect_conflicts(docs)
+        except NameError:
+            conflicts = []  # fallback if function missing
 
-    # similarity checks
-    names = list(docs.keys())
-    sims = []@app.route("/export_pdf", methods=["POST"])
+        # 2) similarity embeddings (safe)
+        sims = []
+        try:
+            names = list(docs.keys())
+            for i in range(len(names)):
+                for j in range(i+1, len(names)):
+                    sim = 0.0
+                    try:
+                        sim = embed_sim(docs[names[i]] or "", docs[names[j]] or "")
+                    except NameError:
+                        sim = 0.0
+                    sims.append({"pair": [names[i], names[j]], "similarity": round(float(sim), 4)})
+        except Exception:
+            sims = []
+
+        # 3) explanation (LLM) with safe fallback
+        try:
+            explanation = generate_explanation_with_providers(conflicts)
+        except NameError:
+            explanation = "AI explanation unavailable (function missing)."
+        except Exception as e:
+            explanation = f"AI explanation error: {str(e)}"
+
+        # 4) Final response always JSON
+        return jsonify({
+            "conflicts": conflicts,
+            "similarities": sims,
+            "explanation": explanation
+        }), 200
+
+    except Exception as e:
+        # Catch-all: return error JSON (so view never returns None)
+        return jsonify({
+            "error": "analyze_failed",
+            "message": str(e)
+        }), 500
+
+    
+@app.route("/export_pdf", methods=["POST"])
 def export_pdf():
     data = request.get_json(force=True) or {}
     w1 = data.get("witness1", "")
