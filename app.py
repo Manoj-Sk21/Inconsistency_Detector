@@ -6,6 +6,12 @@ Inconsistency Detector — Groq-first MVP
 - Otherwise uses rule-based explanations.
 - Keep your templates/index.html unchanged.
 """
+import io
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
+from flask import send_file
+from datetime import datetime
 
 import os
 import re
