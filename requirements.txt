@@ -5,3 +5,4 @@ dateparser
 sentence-transformers
 numpy
 python-dotenv
+reportlab

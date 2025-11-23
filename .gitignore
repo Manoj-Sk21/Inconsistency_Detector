@@ -1,4 +1,15 @@
+# Python & environment
+.venv/
 venv/
 __pycache__/
+*.pyc
+
+# Environment files
 .env
+.env.local
+.env.*.local
+
+# backups and outputs
+backups/
 *.log
+Inconsistency_Report.pdf

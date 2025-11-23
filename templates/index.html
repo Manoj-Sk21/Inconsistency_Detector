@@ -2,54 +2,190 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Inconsistency Detector — MVP</title>
+  <title>Inconsistency Detector — Demo</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; }
-    h1 { font-size: 28px; margin-bottom: 20px; }
-    label { font-weight: bold; display: block; margin-top: 15px; }
-    textarea { width: 100%; height: 120px; margin-top: 5px; }
-    button { margin-top: 20px; padding: 10px 18px; font-size: 16px; cursor: pointer; }
-    pre { background: #f7f7f7; padding: 15px; white-space: pre-wrap; border-radius: 8px; }
+    body { font-family: Arial, sans-serif; margin: 18px; background:#f6f8fb; color:#111; }
+    .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 18px; border-radius:8px; box-shadow: 0 6px 18px rgba(20,30,50,0.08); }
+    textarea { width:100%; height:88px; padding:8px; border-radius:6px; border:1px solid #ddd; resize:vertical; }
+    .row { display:flex; gap:12px; align-items:flex-start; margin-bottom:12px; }
+    .col { flex:1; min-width:180px; }
+    button { background:#1762ff; color:white; border:0; padding:8px 12px; border-radius:6px; cursor:pointer; }
+    button.secondary { background:#2d3748; }
+    .results { margin-top:14px; }
+    .card { background:#fafbff; padding:12px; border-radius:8px; border:1px solid #eee; margin-bottom:8px; }
+    .badge { display:inline-block; padding:6px 8px; border-radius:999px; font-weight:600; font-size:13px; color:white; margin-right:6px; }
+    .badge.high { background:#e53935; }   /* red */
+    .badge.medium { background:#f59e0b; } /* yellow/orange */
+    .badge.low { background:#10b981; }    /* green */
+    .top-panel { display:flex; gap:12px; margin-bottom:12px; }
+    .top-card { flex:1; padding:12px; border-radius:8px; background:linear-gradient(180deg,#fff,#f7fbff); border:1px solid #e6eefc; }
+    .finding { padding:10px; border-radius:6px; background:#fff; border:1px solid #eee; margin-bottom:8px; }
+    .small { font-size:13px; color:#666; }
+    pre { background:#0f1724; color:#e6eefc; padding:10px; border-radius:6px; overflow:auto; max-height:320px; }
   </style>
 </head>
 <body>
-  <h1>Inconsistency Detector — Case Analysis MVP</h1>
+  <div class="container">
+    <h2>Inconsistency Detector — Case Analysis MVP</h2>
 
-  <label>Witness 1 Statement</label>
-  <textarea id="w1">Witness A: I saw a man wearing a red shirt at around 8:30 PM near Park Road. He was riding a vehicle KA 01 AB 1234.</textarea>
+    <div class="row">
+      <div class="col">
+        <label>Witness 1 Statement</label>
+        <textarea id="w1">Witness A: I saw a man wearing a red shirt at around 8:30 PM near Park Road. He was riding a vehicle KA 01 AB 1234.</textarea>
+      </div>
+      <div class="col">
+        <label>Witness 2 Statement</label>
+        <textarea id="w2">Witness B: The person wore a black shirt and passed the area at around 8:52 PM. I think the bike had a different number.</textarea>
+      </div>
+    </div>
 
-  <label>Witness 2 Statement</label>
-  <textarea id="w2">Witness B: The person wore a black shirt and passed the area at around 8:52 PM. I think the bike had a different number.</textarea>
+    <div class="row">
+      <div class="col">
+        <label>FIR</label>
+        <textarea id="fir">FIR: Complainant states the suspect wore a red shirt and snatched the bag at approximately 8:30 PM. Witnesses mentioned a vehicle KA01AB1234.</textarea>
+      </div>
+      <div class="col">
+        <label>CCTV Summary</label>
+        <textarea id="cctv">CCTV Footage: At 20:52, a person is seen walking fast. Shirt color unclear. No readable vehicle plate.</textarea>
+      </div>
+    </div>
 
-  <label>FIR</label>
-  <textarea id="fir">FIR: Complainant states the suspect wore a red shirt and snatched the bag at approximately 8:30 PM. Witnesses mentioned a vehicle KA01AB1234.</textarea>
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+      <button id="analyzeBtn">Analyze</button>
+      <button id="exportBtn" class="secondary">Export PDF</button>
+      <div class="small">Use this to generate a short report for detectives.</div>
+    </div>
 
-  <label>CCTV Summary</label>
-  <textarea id="cctv">CCTV Footage: At 20:52, a person is seen walking fast. Shirt color unclear. No readable vehicle plate.</textarea>
+    <!-- Top 3 findings panel -->
+    <div class="top-panel" id="topPanel" style="display:none">
+      <div class="top-card">
+        <strong>Top 3 Findings</strong>
+        <div id="topList" style="margin-top:8px"></div>
+      </div>
+      <div class="top-card">
+        <strong>Quick Action</strong>
+        <div style="margin-top:8px" id="actions">
+          <div class="small">1. Re-interview plate witness</div>
+          <div class="small">2. Validate CCTV timestamp</div>
+          <div class="small">3. Confirm clothing via canvass</div>
+        </div>
+      </div>
+    </div>
 
-  <button id="run">Analyze Evidence</button>
+    <!-- Results + explanation -->
+    <div class="results">
+      <div class="card">
+        <strong>Explanation</strong>
+        <div id="explanation" style="margin-top:8px" class="small">Press Analyze to run detection.</div>
+      </div>
 
-  <h2>Results</h2>
-  <pre id="out">Results will appear here...</pre>
+      <div class="card">
+        <strong>Conflicts</strong>
+        <div id="conflictList" style="margin-top:10px"></div>
+      </div>
 
-  <script>
-    document.getElementById('run').onclick = async () => {
-      const data = {
-        witness1: document.getElementById('w1').value,
-        witness2: document.getElementById('w2').value,
-        fir: document.getElementById('fir').value,
-        cctv: document.getElementById('cctv').value
-      };
+      <div class="card">
+        <strong>Similarity Scores</strong>
+        <div id="sims" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
 
-      const res = await fetch('/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+<script>
+function severityFor(conflict) {
+  const high = ["TIME_MISMATCH","VEHICLE_MISMATCH"];
+  const medium = ["PERSON_MISMATCH","COLOR_MISMATCH"];
+  const low = ["MISSING_DETAIL"];
+  if (high.includes(conflict.type)) return 3;
+  if (medium.includes(conflict.type)) return 2;
+  if (low.includes(conflict.type)) return 1;
+  return 1;
+}
+function badgeForSeverity(score) {
+  if (score >= 3) return '<span class="badge high">High</span>';
+  if (score == 2) return '<span class="badge medium">Medium</span>';
+  return '<span class="badge low">Low</span>';
+}
 
-      const json = await res.json();
-      document.getElementById('out').textContent = JSON.stringify(json, null, 2);
-    };
-  </script>
+document.getElementById('analyzeBtn').addEventListener('click', async ()=>{
+  const w1 = document.getElementById('w1').value;
+  const w2 = document.getElementById('w2').value;
+  const fir = document.getElementById('fir').value;
+  const cctv = document.getElementById('cctv').value;
+
+  document.getElementById('explanation').innerText = 'Analyzing...';
+  document.getElementById('conflictList').innerHTML = '';
+  document.getElementById('sims').innerText = '';
+
+  const resp = await fetch('/analyze', {
+    method:'POST',
+    headers:{'Content-Type': 'application/json'},
+    body: JSON.stringify({witness1: w1, witness2: w2, fir: fir, cctv: cctv})
+  });
+  const data = await resp.json();
+
+  const conflicts = data.conflicts || [];
+  const withScores = conflicts.map(c => ({...c, score: severityFor(c)}));
+  withScores.sort((a,b) => b.score - a.score);
+
+  const topPanel = document.getElementById('topPanel');
+  const topList = document.getElementById('topList');
+  topList.innerHTML = '';
+  if (withScores.length) {
+    topPanel.style.display = 'flex';
+    withScores.slice(0,3).forEach((c,idx)=>{
+      const badge = badgeForSeverity(c.score);
+      const title = c.type.replace(/_/g,' ');
+      let desc = JSON.stringify(c).replace(/^{|}$/g,'');
+      topList.innerHTML += `<div class="finding">${badge}<strong> ${title}</strong><div class="small">${desc}</div></div>`;
+    });
+  } else {
+    topPanel.style.display = 'none';
+  }
+
+  document.getElementById('explanation').innerHTML = data.explanation || 'No explanation provided';
+
+  const conflictList = document.getElementById('conflictList');
+  conflictList.innerHTML = '';
+  withScores.forEach(c=>{
+    const sevBadge = badgeForSeverity(c.score);
+    const title = c.type.replace(/_/g,' ');
+    const details = document.createElement('div');
+    details.className = 'finding';
+    details.innerHTML = `${sevBadge} <strong>${title}</strong><div class="small">${JSON.stringify(c)}</div>`;
+    conflictList.appendChild(details);
+  });
+
+  document.getElementById('sims').innerHTML = (data.similarities || []).map(s=>`<div class="small">${s.pair.join(' ↔ ')} : ${s.similarity}</div>`).join('');
+});
+
+// Export PDF
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  const payload = {
+    witness1: document.getElementById('w1').value,
+    witness2: document.getElementById('w2').value,
+    fir: document.getElementById('fir').value,
+    cctv: document.getElementById('cctv').value
+  };
+  const resp = await fetch('/export_pdf', {
+    method:'POST',
+    headers:{'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  if (!resp.ok) {
+    const t = await resp.text();
+    alert('Export failed: ' + t);
+    return;
+  }
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'Inconsistency_Report.pdf';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+</script>
 </body>
 </html>
